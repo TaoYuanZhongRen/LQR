@@ -4,24 +4,30 @@
 void* new_instance()
 {
 	auto* obj = new LQRCalculator{};
-
 	return obj;
 }
+
 void update(void* ptr, ControlModelParam* param)
 {
 	auto* obj = static_cast<LQRCalculator*>(ptr);
 	obj->DLQR_Control(param);
-
 }
+
+void del_instance(void* ptr)
+{
+	auto* obj = static_cast<LQRCalculator*>(ptr);
+	delete obj;
+}
+
 LQRControlModel make_model()
 {
 	LQRControlModel result{};
 	result.base.name = "LQR Controller";
 	result.base.type = CONTROL_MODEL;
-
+	result.step = STEP;
 	result.new_instance = new_instance;
 	result.update = update;
-	//result.del_instance = del_instance;
+	result.del_instance = del_instance;
 
 	return result;
 }

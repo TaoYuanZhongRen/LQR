@@ -2,13 +2,10 @@
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
 
-using namespace std;
-using namespace Eigen;
-
-//using namespace uav_utils;
 
 LQRCalculator::LQRCalculator()
 {
+
 }
 
 /**
@@ -37,10 +34,10 @@ void LQRCalculator::DARE(const Eigen::MatrixXd& A, const Eigen::MatrixXd& B, con
     }
     Eigen::MatrixXd P = Q; // initialize
 
-    MatrixXd P_next;
-    MatrixXd A_T = A.transpose();
-    MatrixXd B_T = B.transpose();
-    MatrixXd Rinv = R.inverse();
+    Eigen::MatrixXd P_next;
+    Eigen::MatrixXd A_T = A.transpose();
+    Eigen::MatrixXd B_T = B.transpose();
+    Eigen::MatrixXd Rinv = R.inverse();
 
     double diff;
     while (true)
@@ -62,7 +59,6 @@ void LQRCalculator::DARE(const Eigen::MatrixXd& A, const Eigen::MatrixXd& B, con
 void LQRCalculator::DLQR_Control(ControlModelParam* param)
 {
     Eigen::Vector3d des_acc(0.0, 0.0, 0.0);      //期望加速度
-    dt = 0.02;
     // A矩阵
     // [[1, 0, dt, 0],
     //  [0, 1, 0, dt],
@@ -88,24 +84,26 @@ void LQRCalculator::DLQR_Control(ControlModelParam* param)
     const Eigen::Vector2d des_a = Eigen::Vector2d(param->des_a[0], param->des_a[1]);
     Eigen::Vector2d u_acc = -K * (state_now - state_des) + des_a;
 
-    des_acc = std::move(Eigen::Vector3d(u_acc(0), u_acc(1), 0));
-    des_acc(2) = 3.5 * (param->des_v[2] - param->velocity[2]) + 3.5 * (param->desired[2] - param->position[2]) + param->des_a[2];
-    des_acc += Eigen::Vector3d(0, 0, gra);
-
-    param->thrust = computeDesiredCollectiveThrustSignal(des_acc);
+    param->thrust = computeDesiredThrust(param->velocity[2],param->des_v[2], param->position[2],param->desired[2]);
     for (size_t i = 0; i < 3; i++)
     {
         param->angle_cmd[i] = Calculate_horizon_angelCmd(u_acc, param->euler[2])[i];
     }
 }
-double LQRCalculator::computeDesiredCollectiveThrustSignal(const Eigen::Vector3d& des_acc)
+double LQRCalculator::computeDesiredThrust(double v_z_now, double v_z_des,double pos_z_now,double pos_z_des)
 {
-    double throttle_percentage(0.0);
+    double P = 0, I = 0, D = 0;
+   
+    double pos_z_bias = 2 * (pos_z_des - pos_z_now);
+    double v_z_bias_new = pos_z_bias - v_z_now;
 
-    /* compute throttle, thr2acc has been estimated before */
-    throttle_percentage = des_acc(2) / thr2acc_;
-
-    return throttle_percentage;
+    //0.08  0.0089两个参数是师兄那里PID调参调出来的
+    //这里z轴控制采用的是简单的单环PID控制
+    P = 0.08 * v_z_bias_new;
+    D = 0.0089 * (v_z_bias_new - v_z_bias_old) / STEP;
+    v_z_bias_old = v_z_bias_new;
+    thrust = - (P + I + D - hover_thrust);
+    return thrust;
 }
 Eigen::Vector3d LQRCalculator::Calculate_horizon_angelCmd(Eigen::Vector2d out_acc, const double yaw_my)
 {
@@ -115,17 +113,17 @@ Eigen::Vector3d LQRCalculator::Calculate_horizon_angelCmd(Eigen::Vector2d out_ac
     double cos_yaw = std::cos(yaw_my);
 
     // 构建变换矩阵 A_psi 和其逆矩阵 A_psi_inverse
-    Matrix2d A_psi;
+    Eigen::Matrix2d A_psi;
     A_psi << sin_yaw, cos_yaw,
         -cos_yaw, sin_yaw;
-    Matrix2d A_psi_inverse = A_psi.inverse();
+    Eigen::Matrix2d A_psi_inverse = A_psi.inverse();
 
     // 计算角度命令
-    Vector2d angle_h_cmd = (1.0 / g) * A_psi_inverse * Vector2d(-out_acc[0], -out_acc[1]);
+    Eigen::Vector2d angle_h_cmd = (1.0 / g) * A_psi_inverse * Eigen::Vector2d(-out_acc[0], -out_acc[1]);
     double a_x_cmd = std::atan(angle_h_cmd(0));
     double a_y_cmd = std::atan(angle_h_cmd(1));
 
-    Eigen::Vector3d angle_cmd = std::move(Vector3d(a_x_cmd, a_y_cmd, 0));
+    Eigen::Vector3d angle_cmd = std::move(Eigen::Vector3d(a_x_cmd, a_y_cmd, 0));
     return angle_cmd;
 }
 
