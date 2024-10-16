@@ -19,9 +19,9 @@ void del_instance(void* ptr)
 	delete obj;
 }
 
-LQRControlModel make_model()
+ControlModel make_model()
 {
-	LQRControlModel result{};
+	ControlModel result{};
 	result.base.name = "LQR Controller";
 	result.base.type = CONTROL_MODEL;
 	result.step = STEP;
@@ -33,7 +33,7 @@ LQRControlModel make_model()
 }
 extern"C" __declspec(dllexport) BaseModel * load_model()
 {
-	static LQRControlModel model = make_model();
+	static ControlModel model = make_model();
 
 	return reinterpret_cast<BaseModel*>(&model);
 }

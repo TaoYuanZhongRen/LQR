@@ -5,8 +5,7 @@ enum ModelType
 {
 	CONTROL_MODEL,
 	TRAJECTORY_PLANNING_MODEL,
-	FORMULATION_MODEL,
-	ASTAR_CONTROL_MODEL
+	FORMULATION_MODEL
 };
 
 struct BaseModel
@@ -31,11 +30,7 @@ struct ControlModelParam
 	double angle_cmd[3];
 };
 
-
-
-
-struct LQRControlModel
-{
+struct ControlModel {
 	BaseModel base;
 	float step;
 	void* (*new_instance)();
