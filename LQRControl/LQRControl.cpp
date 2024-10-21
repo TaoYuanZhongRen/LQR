@@ -79,12 +79,12 @@ void LQRCalculator::DLQR_Control(ControlModelParam* param)
     R = 0.4 * Eigen::MatrixXd::Identity(2, 2);
     DARE(A, B, Q, R, &K, 1e-15);
 
-    const Eigen::Vector4d state_des = Eigen::Vector4d(param->desired[0], param->desired[1], param->des_v[0], param->des_v[1]);
+    const Eigen::Vector4d state_des = Eigen::Vector4d(param->desired[0], param->desired[1], param->desired_velocity[0], param->desired_velocity[1]);
     const Eigen::Vector4d state_now = Eigen::Vector4d(param->position[0], param->position[1], param->velocity[0], param->velocity[1]);
     const Eigen::Vector2d des_a = Eigen::Vector2d(param->des_a[0], param->des_a[1]);
     Eigen::Vector2d u_acc = -K * (state_now - state_des) + des_a;
 
-    param->thrust = computeDesiredThrust(param->velocity[2],param->des_v[2], param->position[2],param->desired[2]);
+    param->thrust = computeDesiredThrust(param->velocity[2],param->desired_velocity[2], param->position[2],param->desired[2]);
     for (size_t i = 0; i < 3; i++)
     {
         param->angle_cmd[i] = Calculate_horizon_angelCmd(u_acc, param->euler[2])[i];
@@ -94,15 +94,20 @@ double LQRCalculator::computeDesiredThrust(double v_z_now, double v_z_des,double
 {
     double P = 0, I = 0, D = 0;
    
-    double pos_z_bias = 2 * (pos_z_des - pos_z_now);
+    double pos_z_bias = 2.0 * (pos_z_des - pos_z_now);
     double v_z_bias_new = pos_z_bias - v_z_now;
 
     //0.08  0.0089两个参数是师兄那里PID调参调出来的
     //这里z轴控制采用的是简单的单环PID控制
     P = 0.08 * v_z_bias_new;
-    D = 0.0089 * (v_z_bias_new - v_z_bias_old) / STEP;
+    I = (v_z_bias_new + v_z_bias_old) * 0.5 * dt;
+    D = 0.0089 * (v_z_bias_new - v_z_bias_old) / dt;
     v_z_bias_old = v_z_bias_new;
     thrust = - (P + I + D - hover_thrust);
+    if (thrust <= 0.2)
+    {
+        thrust = 0.2;
+    }
     return thrust;
 }
 Eigen::Vector3d LQRCalculator::Calculate_horizon_angelCmd(Eigen::Vector2d out_acc, const double yaw_my)
