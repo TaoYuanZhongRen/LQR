@@ -101,7 +101,7 @@ double LQRCalculator::computeDesiredThrust(double v_z_now, double v_z_des,double
     //这里z轴控制采用的是简单的单环PID控制
     P = 0.08 * v_z_bias_new;
     I = (v_z_bias_new + v_z_bias_old) * 0.5 * dt;
-    D = 0.0089 * (v_z_bias_new - v_z_bias_old) / dt;
+    D = 0.0092 * (v_z_bias_new - v_z_bias_old) / dt;
     v_z_bias_old = v_z_bias_new;
     thrust = - (P + I + D - hover_thrust);
     if (thrust <= 0.2)

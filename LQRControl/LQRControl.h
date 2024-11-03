@@ -2,7 +2,7 @@
 #include <Eigen/Dense>
 #include "drone_model.h"
 
-constexpr double STEP = 0.03;
+constexpr double STEP = 0.05;
 
 class LQRCalculator
 {
