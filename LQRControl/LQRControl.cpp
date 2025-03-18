@@ -23,72 +23,65 @@ LQRCalculator::LQRCalculator()
  * reached
  */
 
+constexpr double EPS = 1e-4;
+
 void LQRCalculator::DARE(const Eigen::MatrixXd& A, const Eigen::MatrixXd& B, const Eigen::MatrixXd& Q,
-    const Eigen::MatrixXd& R, Eigen::MatrixXd* K, const double eps)
+    const Eigen::MatrixXd& R, Eigen::MatrixXd* K)
 {
     // check if dimensions are compatible
     if (A.rows() != A.cols() || B.rows() != A.rows() || Q.rows() != Q.cols() ||
         Q.rows() != A.rows() || R.rows() != R.cols() || R.rows() != B.cols())
-    {
-        
-    }
+        return;
     Eigen::MatrixXd P = Q; // initialize
-
     Eigen::MatrixXd P_next;
-    Eigen::MatrixXd A_T = A.transpose();
-    Eigen::MatrixXd B_T = B.transpose();
     Eigen::MatrixXd Rinv = R.inverse();
-
     double diff;
     while (true)
     {
-        // -- discrete solver --
-        P_next = A_T * P * A - A_T * P * B * (R + B_T * P * B).inverse() * B_T * P * A + Q;
+        auto PA = P * A, PB = P * B;
+        // 由迭代法解黎卡提方程
+        P_next = A.transpose() * PA - A.transpose() * PB * (R + B.transpose() * PB).inverse() * B.transpose() * PA + Q;
         diff = fabs((P_next - P).maxCoeff());
         P = P_next;
-        if (diff < eps)
-        {
+        if (diff < EPS)
             break;
-        }
     }
-
     // compute K from P
-    *K = (R + B_T * P * B).inverse() * (B_T * P * A);
+    *K = (R + B.transpose() * P * B).inverse() * (B.transpose() * P * A);
 }
 
 void LQRCalculator::DLQR_Control(ControlModelParam* param)
 {
-    Eigen::Vector3d des_acc(0.0, 0.0, 0.0);      //期望加速度
     // A矩阵
     // [[1, 0, dt, 0],
     //  [0, 1, 0, dt],
     //  [0, 0, 1, 0],
     //  [0, 0, 0, 1]]
     A = Eigen::MatrixXd::Identity(4, 4);
-    A(0, 2) = dt;
-    A(1, 3) = dt;
+    A(0, 2) = dt; A(1, 3) = dt;
     B = Eigen::MatrixXd::Zero(4, 2);
-    B(2, 0) = dt;
-    B(3, 1) = dt;
+    B(2, 0) = dt; B(3, 1) = dt;
     // B矩阵
     // [[0, 0],
     // [0, 0],
     // [dt, 0],
     // [0, dt]]
     Q = Eigen::MatrixXd::Identity(4, 4);
+    Q(0, 0) = 2; Q(1, 1) = 2;
     R = 0.4 * Eigen::MatrixXd::Identity(2, 2);
-    DARE(A, B, Q, R, &K, 1e-15);
-
+    DARE(A, B, Q, R, &K);
+    // 期望状态矩阵
     const Eigen::Vector4d state_des = Eigen::Vector4d(param->desired[0], param->desired[1], param->desired_velocity[0], param->desired_velocity[1]);
+    // 当前状态矩阵
     const Eigen::Vector4d state_now = Eigen::Vector4d(param->position[0], param->position[1], param->velocity[0], param->velocity[1]);
+    // 期望加速度
     const Eigen::Vector2d des_a = Eigen::Vector2d(param->des_a[0], param->des_a[1]);
+    // 加速度作为控制输入
     Eigen::Vector2d u_acc = -K * (state_now - state_des) + des_a;
-
     param->thrust = computeDesiredThrust(param->velocity[2],param->desired_velocity[2], param->position[2],param->desired[2]);
     for (size_t i = 0; i < 3; i++)
-    {
+        //由加速度计算欧拉角
         param->angle_cmd[i] = Calculate_horizon_angelCmd(u_acc, param->euler[2])[i];
-    }
 }
 double LQRCalculator::computeDesiredThrust(double v_z_now, double v_z_des,double pos_z_now,double pos_z_des)
 {
@@ -96,9 +89,6 @@ double LQRCalculator::computeDesiredThrust(double v_z_now, double v_z_des,double
    
     double pos_z_bias = 2.0 * (pos_z_des - pos_z_now);
     double v_z_bias_new = pos_z_bias - v_z_now;
-
-    //0.08  0.0089两个参数是师兄那里PID调参调出来的
-    //这里z轴控制采用的是简单的单环PID控制
     P = 0.08 * v_z_bias_new;
     I = (v_z_bias_new + v_z_bias_old) * 0.5 * dt;
     D = 0.0092 * (v_z_bias_new - v_z_bias_old) / dt;

@@ -2,7 +2,7 @@
 #include <Eigen/Dense>
 #include "drone_model.h"
 
-constexpr double STEP = 0.05;
+constexpr double STEP = 0.02;
 
 class LQRCalculator
 {
@@ -11,7 +11,7 @@ public:
 
     void DLQR_Control(ControlModelParam* param);
     void DARE(const Eigen::MatrixXd& A, const Eigen::MatrixXd& B, const Eigen::MatrixXd& Q,
-        const Eigen::MatrixXd& R, Eigen::MatrixXd* K, const double eps);
+        const Eigen::MatrixXd& R, Eigen::MatrixXd* K);
     Eigen::Vector3d Calculate_horizon_angelCmd(Eigen::Vector2d out_acc, const double yaw_my);
     double computeDesiredThrust(double v_now_z, double v_des_z, double pos_now_z, double pos_des_z);
 
